@@ -1,11 +1,10 @@
 #!/bin/bash
 
-VAR_DIR_TO_SCAN=`grep "VAR_DIR_TO_SCAN=" $1 | cut -d "=" -f2`
-
-function find_me(){
-    echo "" > output.txt ;
-	find $1 -type f -exec sh -c '
-found=`file "$0" -i --mime-type -m /usr/share/file/magic.mgc`; 
+VAR_DIR_TO_SCAN=`grep "VAR_DIR_TO_SCAN=" $1 | cut -d "=" -f2`;
+VAR_FILE_MAGIC_SYS=`grep "VAR_FILE_MAGIC_SYS=" $1 | cut -d "=" -f2`;
+ 
+function find_to(){
+found=`file "$1" -i --mime-type -m $2`; 
 file=`echo $found | cut -d ":" -f1`; 
 part=`echo $found | cut -d ":" -f2`; 
 mime=`echo $part | cut -d ";" -f1`;
@@ -33,28 +32,29 @@ if [ $mime != "application/CDFV2-corrupt" ] &&
    [ $mime != "application/x-xls" ] &&
    [ $mime != "application/vnd.ms-office" ] &&
    [ $mime != "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ]; then
-	echo "le fichier $file contient le mime non autorisé : $mime"  >> $PWD/output.txt
+	echo "the mime of $file  : $mime is not autorised" >> $PWD/output.txt
 fi
-' {} \; 
+
+}
+export -f find_to;
+
+function find_me(){
+    echo "" > output.txt ;
+    export PATH_MAGIC="$2";
+	find $1 -type f -print0 | xargs -0 bash -c env | grep PATH_MAGIC  &>/dev/null && find_to $0 $PATH_MAGIC ; 
 }
 
 # Variables
 number=1
-# This accounts as the "totalState" variable for the ProgressBar function
-_end=$(find $PWD -type f | wc -l);
 
-find_me $VAR_DIR_TO_SCAN $VAR_DIR_MAGIC_SYS &
+find_me $VAR_DIR_TO_SCAN $VAR_FILE_MAGIC_SYS &
  PID=$!
-if [[ ${_end}/100 -lt 1 ]] ; then
-		let _sleep=1;
-	else  
-		let _sleep=${_end}/100/100;
-	fi
+
 # Proof of concept
 while kill -0 $PID 2> /dev/null; do 
     printf "\rVeuillez patientez scann en cours!";
 	number=`expr ${number}+1`;
-		sleep $_sleep
+	
 done
 printf "\r"
-printf "Scan du répertoire $PWD terminé!, récupérez le résultat du scan dans le fichier $PWD/output.txt\n"
+printf "Scan du répertoire $VAR_DIR_TO_SCAN terminé!, récupérez le résultat du scan dans le fichier $PWD/output.txt\n"
